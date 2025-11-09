@@ -22,7 +22,7 @@ jobs:
         run: |
           pip install google-ads==28.4.0
 
-          - name: Generate Ads Report
+      - name: Generate Ads Report
         env:
           GADS_CLIENT_ID: ${{ secrets.GADS_CLIENT_ID }}
           GADS_CLIENT_SECRET: ${{ secrets.GADS_CLIENT_SECRET }}
@@ -89,7 +89,6 @@ jobs:
 
           print(f"✅ Report generated with {len(data)} rows")
           EOF
-
 
       - name: Commit and push report
         run: |
