@@ -34,13 +34,14 @@ jobs:
           import json
           from google.ads.googleads.client import GoogleAdsClient
 
-          config = {
-              "developer_token": "${{ secrets.GADS_DEVELOPER_TOKEN }}",
-              "client_id": "${{ secrets.GADS_CLIENT_ID }}",
-              "client_secret": "${{ secrets.GADS_CLIENT_SECRET }}",
-              "refresh_token": "${{ secrets.GADS_REFRESH_TOKEN }}",
-              "login_customer_id": None,
-          }
+config = {
+    "developer_token": "${{ secrets.GADS_DEVELOPER_TOKEN }}",
+    "client_id": "${{ secrets.GADS_CLIENT_ID }}",
+    "client_secret": "${{ secrets.GADS_CLIENT_SECRET }}",
+    "refresh_token": "${{ secrets.GADS_REFRESH_TOKEN }}",
+    "login_customer_id": None,
+    "use_proto_plus": True,
+}
 
           client = GoogleAdsClient.load_from_dict(config)
           ga_service = client.get_service("GoogleAdsService")
