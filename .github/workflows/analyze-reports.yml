@@ -1,0 +1,88 @@
+name: Analyze Google Ads Reports with AI
+
+on:
+  workflow_dispatch:      # Permite correr manualmente
+  schedule:
+    - cron: "0 7 * * 1"   # Executa todas as segundas às 7h UTC (1h depois do update-report)
+
+jobs:
+  analyze-reports:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install openai pandas matplotlib
+
+      - name: Analyze Reports with GPT
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python - << 'EOF'
+          import os, json, pandas as pd
+          from openai import OpenAI
+
+          print("🔹 Iniciando análise de relatórios Google Ads...")
+
+          client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+          reports_dir = "ads_reports"
+          summary_path = os.path.join(reports_dir, "summary_comparativo.json")
+
+          # Verifica se existem relatórios
+          if not os.path.exists(summary_path):
+              raise FileNotFoundError("❌ summary_comparativo.json não encontrado! Corre primeiro o workflow 'Update Google Ads Reports'.")
+
+          with open(summary_path, "r", encoding="utf-8") as f:
+              summary = json.load(f)
+
+          # Monta texto com dados agregados
+          resumo = "### Dados Consolidados Google Ads (últimos 30 dias)\n\n"
+          for acc in summary:
+              resumo += f"**{acc['account_name']}** ({acc['account_id']})\n"
+              resumo += f"- Cliques: {acc['total_clicks']}\n"
+              resumo += f"- Custo total: €{acc['total_cost']:.2f}\n"
+              resumo += f"- CTR médio: {acc['avg_ctr']}%\n\n"
+
+          prompt = f"""
+          És um especialista em Google Ads.
+          Recebeste o seguinte resumo de desempenho:
+
+          {resumo}
+
+          Com base nestes dados:
+          1. Faz uma análise comparativa entre as contas.
+          2. Indica quais têm melhor desempenho e porquê.
+          3. Dá recomendações práticas para otimizar campanhas, reduzir custos e melhorar CTR.
+          4. Sugere prioridades de investimento com base na performance.
+          """
+
+          response = client.responses.create(
+              model="gpt-4.1-mini",
+              input=prompt,
+          )
+
+          ai_output = response.output_text
+
+          # Grava o relatório Markdown
+          with open("ads_ai_insights.md", "w", encoding="utf-8") as f:
+              f.write("# Relatório de Insights Google Ads (Gerado por IA)\n\n")
+              f.write(ai_output)
+
+          print("✅ Relatório de IA gerado com sucesso!")
+          EOF
+
+      - name: Commit and push AI insights
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add ads_ai_insights.md || echo "Sem alterações para adicionar"
+          git commit -m "Update AI Ads Insights" || echo "Sem alterações para commit"
+          git push
