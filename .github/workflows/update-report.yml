@@ -1,12 +1,12 @@
-name: Update Google Ads Report
+name: Update Google Ads Reports
 
 on:
   schedule:
-    - cron: "0 6 * * 1"  # executa todas as segundas às 6h UTC
-  workflow_dispatch:      # permite correr manualmente
+    - cron: "0 6 * * 1"  # Executa todas as segundas às 6h UTC
+  workflow_dispatch:      # Permite executar manualmente
 
 jobs:
-  generate-report:
+  generate-reports:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,32 +22,36 @@ jobs:
         run: |
           pip install google-ads==28.4.0
 
-      - name: Generate Ads Report
+      - name: Generate Google Ads Reports
         env:
           GADS_CLIENT_ID: ${{ secrets.GADS_CLIENT_ID }}
           GADS_CLIENT_SECRET: ${{ secrets.GADS_CLIENT_SECRET }}
           GADS_DEVELOPER_TOKEN: ${{ secrets.GADS_DEVELOPER_TOKEN }}
           GADS_REFRESH_TOKEN: ${{ secrets.GADS_REFRESH_TOKEN }}
-          GADS_CUSTOMER_ID: "6019645403"
         run: |
           python - << 'EOF'
-          import json
+          import json, os
           from google.ads.googleads.client import GoogleAdsClient
 
-          # Configuração da API Google Ads
+          # --- Carrega configuração da API ---
           config = {
               "developer_token": "${{ secrets.GADS_DEVELOPER_TOKEN }}",
               "client_id": "${{ secrets.GADS_CLIENT_ID }}",
               "client_secret": "${{ secrets.GADS_CLIENT_SECRET }}",
               "refresh_token": "${{ secrets.GADS_REFRESH_TOKEN }}",
-              "login_customer_id": "${{ env.GADS_CUSTOMER_ID }}",
               "use_proto_plus": True,
           }
 
           client = GoogleAdsClient.load_from_dict(config)
           ga_service = client.get_service("GoogleAdsService")
 
-          # Query das campanhas
+          # --- Lê a lista de contas do ficheiro accounts.json ---
+          with open("accounts.json", "r", encoding="utf-8") as f:
+              accounts = json.load(f)
+
+          os.makedirs("ads_reports", exist_ok=True)
+          summary = []
+
           query = """
             SELECT
               campaign.id,
@@ -65,39 +69,62 @@ jobs:
             WHERE segments.date DURING LAST_30_DAYS
           """
 
-          response = ga_service.search_stream(
-              customer_id="${{ env.GADS_CUSTOMER_ID }}", query=query
-          )
+          for acc in accounts:
+              account_id = acc["id"]
+              name = acc["name"]
+              print(f"🔹 Gerando relatório para {name} ({account_id})...")
 
-          # Construção do dataset
-          data = []
-          for batch in response:
-              for row in batch.results:
-                  data.append({
-                      "campaign_id": row.campaign.id,
-                      "campaign_name": row.campaign.name,
-                      "adgroup_id": row.ad_group.id,
-                      "adgroup_name": row.ad_group.name,
-                      "keyword": getattr(row.ad_group_criterion.keyword, "text", None),
-                      "clicks": row.metrics.clicks,
-                      "impressions": row.metrics.impressions,
-                      "ctr": row.metrics.ctr,
-                      "avg_cpc": (getattr(row.metrics.average_cpc, "micros", row.metrics.average_cpc or 0) / 1_000_000),
-                      "cost": (getattr(row.metrics.cost_micros, "micros", row.metrics.cost_micros or 0) / 1_000_000),
-                      "date": row.segments.date,
+              try:
+                  response = ga_service.search_stream(customer_id=account_id, query=query)
+                  data = []
+
+                  for batch in response:
+                      for row in batch.results:
+                          data.append({
+                              "campaign_id": row.campaign.id,
+                              "campaign_name": row.campaign.name,
+                              "adgroup_id": row.ad_group.id,
+                              "adgroup_name": row.ad_group.name,
+                              "keyword": getattr(row.ad_group_criterion.keyword, "text", None),
+                              "clicks": row.metrics.clicks,
+                              "impressions": row.metrics.impressions,
+                              "ctr": row.metrics.ctr,
+                              "avg_cpc": (getattr(row.metrics.average_cpc, "micros", row.metrics.average_cpc or 0) / 1_000_000),
+                              "cost": (getattr(row.metrics.cost_micros, "micros", row.metrics.cost_micros or 0) / 1_000_000),
+                              "date": row.segments.date,
+                          })
+
+                  # Guarda o ficheiro de cada conta
+                  with open(f"ads_reports/{name.lower().replace(' ','_')}.json", "w", encoding="utf-8") as f:
+                      json.dump(data, f, indent=2, ensure_ascii=False)
+
+                  # Resumo para o ficheiro comparativo
+                  total_clicks = sum(d["clicks"] for d in data)
+                  total_cost = sum(d["cost"] for d in data)
+                  avg_ctr = round(sum(d["ctr"] for d in data) / len(data), 2) if data else 0
+
+                  summary.append({
+                      "account_name": name,
+                      "account_id": account_id,
+                      "total_clicks": total_clicks,
+                      "total_cost": total_cost,
+                      "avg_ctr": avg_ctr
                   })
 
-          # Grava o ficheiro JSON
-          with open("ads_full_report.json", "w", encoding="utf-8") as f:
-              json.dump(data, f, indent=2, ensure_ascii=False)
+              except Exception as e:
+                  print(f"⚠️ Erro ao gerar relatório para {name}: {e}")
 
-          print(f"✅ Report generated with {len(data)} rows")
+          # --- Guarda o resumo geral ---
+          with open("ads_reports/summary_comparativo.json", "w", encoding="utf-8") as f:
+              json.dump(summary, f, indent=2, ensure_ascii=False)
+
+          print("✅ Todos os relatórios gerados com sucesso.")
           EOF
 
-      - name: Commit and push report
+      - name: Commit and push reports
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add ads_full_report.json
-          git commit -m "Update Google Ads report"
+          git add ads_reports/*.json || echo "Sem alterações para adicionar"
+          git commit -m "Update Google Ads reports" || echo "Sem alterações para commit"
           git push
