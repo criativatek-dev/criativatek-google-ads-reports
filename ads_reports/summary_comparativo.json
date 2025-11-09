@@ -1,0 +1,23 @@
+[
+  {
+    "account_name": "Pluralcare",
+    "account_id": "6019645403",
+    "total_clicks": 227,
+    "total_cost": 316.8980870000002,
+    "avg_ctr": 0.13
+  },
+  {
+    "account_name": "CanaldaDenuncia",
+    "account_id": "8884390676",
+    "total_clicks": 56,
+    "total_cost": 105.08247599999999,
+    "avg_ctr": 0.05
+  },
+  {
+    "account_name": "MDIST",
+    "account_id": "4376073182",
+    "total_clicks": 0,
+    "total_cost": 0,
+    "avg_ctr": 0
+  }
+]
