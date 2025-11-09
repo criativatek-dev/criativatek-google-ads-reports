@@ -1,0 +1,151 @@
+{
+  "updated_at": "2025-11-09T12:00:00Z",
+  "account": {
+    "id": "123-456-7890",
+    "name": "Criativatek",
+    "currency": "EUR",
+    "timezone": "Europe/Lisbon",
+    "manager_id": "000-111-2222",
+    "customer_status": "ENABLED"
+  },
+
+  "summary": {
+    "date_range": "LAST_30_DAYS",
+    "total_clicks": 5234,
+    "total_impressions": 321000,
+    "total_conversions": 187,
+    "total_cost": 2540.75,
+    "avg_cpc": 0.48,
+    "avg_ctr": 1.63,
+    "avg_conversion_rate": 3.57,
+    "total_keywords": 870,
+    "total_negative_keywords": 123
+  },
+
+  "campaigns": [
+    {
+      "id": "1111111",
+      "name": "Web Design",
+      "status": "ENABLED",
+      "type": "SEARCH",
+      "bidding_strategy": "MAXIMIZE_CONVERSIONS",
+      "budget": 15.00,
+      "start_date": "2025-09-01",
+      "end_date": null,
+      "tracking_template": "{lpurl}?utm_source=google&utm_campaign=webdesign",
+      "labels": ["Ativa", "Principal"],
+
+      "metrics": {
+        "clicks": 1520,
+        "impressions": 67400,
+        "ctr": 2.25,
+        "avg_cpc": 0.42,
+        "cost": 638.40,
+        "conversions": 36,
+        "conversion_rate": 2.37,
+        "value_per_conversion": 17.74,
+        "avg_position": 1.9,
+        "search_impression_share": 82.4,
+        "quality_score_avg": 7.6
+      },
+
+      "geo_targets": [
+        { "country": "Portugal", "region": "Leiria", "clicks": 420, "conversions": 9 },
+        { "country": "Portugal", "region": "Lisboa", "clicks": 780, "conversions": 19 }
+      ],
+
+      "devices": {
+        "desktop": { "clicks": 800, "conversions": 21, "cpc": 0.39 },
+        "mobile": { "clicks": 620, "conversions": 15, "cpc": 0.46 },
+        "tablet": { "clicks": 100, "conversions": 0, "cpc": 0.48 }
+      },
+
+      "schedule": [
+        { "day": "Monday", "start": "08:00", "end": "20:00" },
+        { "day": "Tuesday", "start": "08:00", "end": "20:00" },
+        { "day": "Saturday", "start": "09:00", "end": "14:00" }
+      ],
+
+      "audiences": [
+        { "name": "Remarketing Website", "type": "CUSTOMER_LIST", "size": 1280 },
+        { "name": "Lookalike 1%", "type": "SIMILAR_SEGMENT", "size": 8500 }
+      ],
+
+      "placements": [
+        { "domain": "youtube.com", "impressions": 23000, "clicks": 210 },
+        { "domain": "google.com", "impressions": 44000, "clicks": 950 }
+      ],
+
+      "negative_keywords": [
+        { "text": "grátis", "match_type": "BROAD" },
+        { "text": "template wordpress", "match_type": "PHRASE" }
+      ],
+
+      "ad_groups": [
+        {
+          "id": "A1",
+          "name": "Web Design - Leads",
+          "status": "ENABLED",
+          "default_bid": 0.50,
+          "metrics": {
+            "clicks": 820,
+            "impressions": 38200,
+            "ctr": 2.14,
+            "avg_cpc": 0.41,
+            "conversions": 19
+          },
+
+          "keywords": [
+            { "text": "empresa web design", "match_type": "PHRASE", "quality_score": 8, "clicks": 420, "ctr": 2.9, "conversions": 14 },
+            { "text": "criar site profissional", "match_type": "BROAD", "quality_score": 7, "clicks": 350, "ctr": 1.8, "conversions": 8 }
+          ],
+
+          "negative_keywords": [
+            { "text": "gratis", "match_type": "BROAD" }
+          ],
+
+          "ads": [
+            {
+              "id": "AD-100",
+              "type": "EXPANDED_TEXT_AD",
+              "headline_1": "Websites Profissionais à Medida",
+              "headline_2": "Criamos soluções que refletem a sua marca",
+              "description": "Design, SEO e performance. Fale connosco hoje.",
+              "path_1": "webdesign",
+              "path_2": "solucoes",
+              "final_url": "https://criativatek.com/webdesign",
+              "clicks": 220,
+              "impressions": 8800,
+              "ctr": 2.5,
+              "conversions": 9
+            }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "shared_negative_keyword_lists": [
+    {
+      "name": "Exclusões Gerais",
+      "keywords": [
+        "grátis",
+        "emprego",
+        "curso",
+        "download"
+      ],
+      "applied_to_campaigns": ["Web Design", "Lojas Online"]
+    }
+  ],
+
+  "conversion_actions": [
+    { "name": "Formulário Website", "category": "LEAD", "counting_type": "ONE_PER_CLICK", "value": 1.0, "status": "ENABLED" },
+    { "name": "Telefonema", "category": "PHONE_CALL_LEAD", "counting_type": "MANY_PER_CLICK", "value": 1.0, "status": "ENABLED" }
+  ],
+
+  "assets": [
+    { "type": "SITELINK", "text": "Portefólio", "url": "https://criativatek.com/portfolio" },
+    { "type": "CALL_EXTENSION", "number": "+351 244 123 456" },
+    { "type": "STRUCTURED_SNIPPET", "header": "Serviços", "values": ["Web Design", "Lojas Online", "SEO"] }
+  ]
+}
