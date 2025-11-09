@@ -20,7 +20,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pandas openai matplotlib seaborn
+          pip install pandas openai matplotlib seaborn tabulate
 
       - name: Analyze Google Ads JSON reports
         env:
