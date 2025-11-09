@@ -2,8 +2,8 @@ name: Update Google Ads Report
 
 on:
   schedule:
-    - cron: "0 6 * * 1"   # Executa todas as segundas às 6h
-  workflow_dispatch:      # Permite execução manual
+    - cron: "0 6 * * 1"  # executa todas as segundas às 6h UTC
+  workflow_dispatch:      # permite correr manualmente
 
 jobs:
   generate-report:
@@ -28,7 +28,7 @@ jobs:
           GADS_CLIENT_SECRET: ${{ secrets.GADS_CLIENT_SECRET }}
           GADS_DEVELOPER_TOKEN: ${{ secrets.GADS_DEVELOPER_TOKEN }}
           GADS_REFRESH_TOKEN: ${{ secrets.GADS_REFRESH_TOKEN }}
-          GADS_CUSTOMER_ID: "INSERE_AQUI_O_TEU_CUSTOMER_ID"
+          GADS_CUSTOMER_ID: "1435296911"   # substitui pelo teu ID Google Ads se for diferente
         run: |
           python - << 'EOF'
           import json
@@ -96,4 +96,3 @@ jobs:
           git add ads_full_report.json
           git commit -m "Update Google Ads report"
           git push
-
