@@ -34,6 +34,7 @@ jobs:
           import json
           from google.ads.googleads.client import GoogleAdsClient
 
+          # Configuração da API Google Ads
           config = {
               "developer_token": "${{ secrets.GADS_DEVELOPER_TOKEN }}",
               "client_id": "${{ secrets.GADS_CLIENT_ID }}",
@@ -46,6 +47,7 @@ jobs:
           client = GoogleAdsClient.load_from_dict(config)
           ga_service = client.get_service("GoogleAdsService")
 
+          # Query das campanhas
           query = """
             SELECT
               campaign.id,
@@ -67,6 +69,7 @@ jobs:
               customer_id="${{ env.GADS_CUSTOMER_ID }}", query=query
           )
 
+          # Construção do dataset
           data = []
           for batch in response:
               for row in batch.results:
@@ -79,11 +82,12 @@ jobs:
                       "clicks": row.metrics.clicks,
                       "impressions": row.metrics.impressions,
                       "ctr": row.metrics.ctr,
-                      "avg_cpc": row.metrics.average_cpc.micros / 1_000_000,
-                      "cost": row.metrics.cost_micros / 1_000_000,
+                      "avg_cpc": (getattr(row.metrics.average_cpc, "micros", row.metrics.average_cpc or 0) / 1_000_000),
+                      "cost": (getattr(row.metrics.cost_micros, "micros", row.metrics.cost_micros or 0) / 1_000_000),
                       "date": row.segments.date,
                   })
 
+          # Grava o ficheiro JSON
           with open("ads_full_report.json", "w", encoding="utf-8") as f:
               json.dump(data, f, indent=2, ensure_ascii=False)
 
