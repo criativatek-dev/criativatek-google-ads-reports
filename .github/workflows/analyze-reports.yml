@@ -1,9 +1,9 @@
-name: Analyze Google Ads Reports per Account (AI)
+name: 🔍 Analisar Contas Google Ads (IA)
 
 on:
-  workflow_dispatch:      # podes executar manualmente
+  workflow_dispatch:
   schedule:
-    - cron: "0 8 * * 1"   # segundas às 08:00 UTC (depois do update-report)
+    - cron: "0 8 * * 1"  # executa todas as segundas às 8h UTC
 
 jobs:
   analyze-reports:
@@ -20,184 +20,61 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install openai pandas numpy
+          pip install pandas openai matplotlib seaborn
 
-      - name: Generate per-account AI insights
+      - name: Analyze Google Ads JSON reports
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           python - << 'EOF'
-          import os, json, math
-          from pathlib import Path
-          import pandas as pd
-          import numpy as np
-          from openai import OpenAI
+          import json, glob, pandas as pd, openai, os
 
-          ROOT = Path(".")
-          REPORTS_DIR = ROOT / "ads_reports"
-          OUT_DIR = ROOT / "ads_ai_insights"
-          OUT_DIR.mkdir(parents=True, exist_ok=True)
+          print("🔍 A analisar relatórios JSON...")
 
-          # 1) Ler accounts.json
-          accounts_path = ROOT / "accounts.json"
-          if not accounts_path.exists():
-            raise FileNotFoundError("accounts.json não encontrado na raiz do repositório.")
-          accounts = json.loads(accounts_path.read_text(encoding="utf-8"))
+          files = glob.glob("*.json")
+          all_reports = []
 
-          client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-          if not os.environ.get("OPENAI_API_KEY"):
-            raise RuntimeError("OPENAI_API_KEY não definido nos Secrets.")
+          for file in files:
+              with open(file, "r", encoding="utf-8") as f:
+                  data = json.load(f)
+                  for row in data:
+                      row["source_file"] = file
+                      all_reports.append(row)
 
-          def safe_div(a, b):
-              return (a / b) if (b and b != 0) else 0.0
+          df = pd.DataFrame(all_reports)
+          summary = df.groupby("source_file")[["clicks","impressions","cost"]].sum()
+          print(summary)
 
-          def load_account_df(acc):
-              # tenta por nome (pluralcare.json) senão por id (6019645403.json)
-              fname_by_name = (REPORTS_DIR / f"{acc['name'].lower().replace(' ','_')}.json")
-              fname_by_id   = (REPORTS_DIR / f"{acc['id']}.json")
-              if fname_by_name.exists():
-                  raw = json.loads(fname_by_name.read_text(encoding="utf-8"))
-                  source = fname_by_name.name
-              elif fname_by_id.exists():
-                  raw = json.loads(fname_by_id.read_text(encoding="utf-8"))
-                  source = fname_by_id.name
-              else:
-                  raise FileNotFoundError(f"Nenhum relatório JSON encontrado para {acc['name']} ({acc['id']}). Esperado {fname_by_name.name} ou {fname_by_id.name}")
+          openai.api_key = os.getenv("OPENAI_API_KEY")
+          insights_prompt = f"""
+          Analisa os seguintes dados de campanhas Google Ads (JSON resumido abaixo) e escreve um relatório detalhado com:
+          - Principais campanhas e palavras-chave com melhor desempenho
+          - Recomendações práticas de otimização
+          - Oportunidades de redução de custo
+          - Sugestões baseadas em inteligência artificial para aumentar conversões
 
-              df = pd.DataFrame(raw or [])
-              if df.empty:
-                  # garantir colunas
-                  df = pd.DataFrame(columns=[
-                      "campaign_id","campaign_name","adgroup_id","adgroup_name",
-                      "keyword","clicks","impressions","ctr","avg_cpc","cost","date"
-                  ])
-              # tipos numéricos seguros
-              for c in ["clicks","impressions","ctr","avg_cpc","cost"]:
-                  if c in df.columns:
-                      df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
-              return df, source
+          Dados:
+          {summary.to_markdown()}
+          """
 
-          def summarize_account(df):
-              # agregações úteis
-              camp = df.groupby(["campaign_id","campaign_name"], dropna=False).agg(
-                  clicks=("clicks","sum"),
-                  impressions=("impressions","sum"),
-                  cost=("cost","sum")
-              ).reset_index()
-              camp["ctr"] = camp.apply(lambda r: safe_div(r["clicks"], r["impressions"])*100, axis=1)
-              camp["cpc"] = camp.apply(lambda r: safe_div(r["cost"], r["clicks"]), axis=1)
-              camp["cpm"] = camp.apply(lambda r: safe_div(r["cost"], r["impressions"])*1000, axis=1)
+          response = openai.chat.completions.create(
+              model="gpt-4o-mini",
+              messages=[
+                  {"role": "system", "content": "És um analista sênior de Google Ads com experiência em otimização de campanhas."},
+                  {"role": "user", "content": insights_prompt},
+              ]
+          )
 
-              kw = df.groupby(["keyword","campaign_name","adgroup_name"], dropna=False).agg(
-                  clicks=("clicks","sum"),
-                  impressions=("impressions","sum"),
-                  cost=("cost","sum")
-              ).reset_index().sort_values("cost", ascending=False)
-              kw["ctr"] = kw.apply(lambda r: safe_div(r["clicks"], r["impressions"])*100, axis=1)
-              kw["cpc"] = kw.apply(lambda r: safe_div(r["cost"], r["clicks"]), axis=1)
+          with open("ads_ai_insights.md", "w", encoding="utf-8") as f:
+              f.write(response.choices[0].message.content)
 
-              totals = {
-                  "clicks": int(df["clicks"].sum()),
-                  "impressions": int(df["impressions"].sum()),
-                  "cost": float(df["cost"].sum()),
-                  "ctr": safe_div(df["clicks"].sum(), df["impressions"].sum())*100 if df["impressions"].sum() else 0.0,
-                  "cpc": safe_div(df["cost"].sum(), df["clicks"].sum()) if df["clicks"].sum() else 0.0,
-                  "cpm": safe_div(df["cost"].sum(), df["impressions"].sum())*1000 if df["impressions"].sum() else 0.0,
-              }
-
-              # amostras para o prompt (limitar tamanho)
-              top_campaigns = camp.sort_values("cost", ascending=False).head(20)
-              worst_ctr_kw = kw[(kw["impressions"]>=200) & (kw["clicks"]==0)].sort_values("impressions", ascending=False).head(30)
-              top_cost_kw  = kw.head(40)
-
-              # serializar para texto compacto
-              def df2list(d):
-                  # reduzir precisão
-                  out = d.copy()
-                  for col in ["ctr","cpc","cpm","cost"]:
-                      if col in out.columns:
-                          out[col] = out[col].astype(float).round(4)
-                  # converter para listas de dicts
-                  return out.to_dict(orient="records")
-
-              payload = {
-                  "totals": totals,
-                  "top_campaigns": df2list(top_campaigns),
-                  "top_cost_keywords": df2list(top_cost_kw),
-                  "zero_click_high_impr_keywords": df2list(worst_ctr_kw),
-              }
-              return payload
-
-          def render_prompt(acc, source_file, payload):
-              # instruções super detalhadas para extrair valor máximo
-              return f"""
-Tu és um consultor sénior de Google Ads. Recebeste dados da conta **{acc['name']}** (ID {acc['id']}), últimos 30 dias, extraídos do ficheiro {source_file}.
-NÃO inventes métricas que não existem no dataset (p.ex. conversões). Baseia-te apenas em cliques, impressões, CTR, CPC, CPM, custo, campanhas, grupos de anúncios e keywords.
-
-### Dados consolidados
-{json.dumps(payload['totals'], ensure_ascii=False, indent=2)}
-
-### Top campanhas por custo (máx 20)
-{json.dumps(payload['top_campaigns'], ensure_ascii=False, indent=2)}
-
-### Palavras-chave com maior custo (máx 40)
-{json.dumps(payload['top_cost_keywords'], ensure_ascii=False, indent=2)}
-
-### Palavras-chave com MUITAS impressões e 0 cliques (candidatas a pausar/negativar)
-{json.dumps(payload['zero_click_high_impr_keywords'], ensure_ascii=False, indent=2)}
-
-### Tarefas
-1) **Diagnóstico profundo** (bullet points) sobre desperdício, oportunidades e gargalos: por campanhas e por keywords.
-2) **Plano de ação priorizado (P1, P2, P3)** com tarefas concretas e critérios de decisão (p.ex., pausar keywords com >300 impressões e CTR <0,3%, reduzir lance em X% onde CPC > média+20%, realocar orçamento de campanhas com CPC alto para as com CPC baixo e CTR acima da mediana, etc.).
-3) **Lista de keywords a pausar/ajustar** (com justificação). Se faltarem dados, indica como os recolher.
-4) **Sugestões de negativas** (parciais/exatas) a partir das keywords com altas impressões e 0 cliques (não inventes termos fora do que tens).
-5) **Ajustes de lances** (guidelines): por CPC/CTR, com thresholds objetivos (valores).
-6) **Orçamentação**: onde cortar e onde investir (quantifica percentagens).
-7) **Copy de anúncios**: 3 variações de headlines e descrições inspiradas nas melhores keywords (usa linguagem persuasiva e PT-PT).
-8) **Scorecard** final com 5 KPIs a seguir na próxima semana (e metas numéricas).
-
-Formata em **Markdown**, com secções e tabelas. Sê específico, crítico e acionável. Português de Portugal.
-"""
-
-          generated = []
-
-          for acc in accounts:
-              try:
-                  df, src = load_account_df(acc)
-                  payload = summarize_account(df)
-                  prompt = render_prompt(acc, src, payload)
-
-                  # Chamada ao modelo
-                  resp = client.responses.create(
-                      model="gpt-4.1-mini",
-                      input=prompt,
-                  )
-                  text = resp.output_text
-
-                  out_path = OUT_DIR / f"{acc['name'].lower().replace(' ','_')}_insights.md"
-                  out_path.write_text(text, encoding="utf-8")
-                  print(f"✅ Gerado: {out_path}")
-                  generated.append(out_path.name)
-
-              except Exception as e:
-                  print(f"⚠️ Erro na conta {acc.get('name')} ({acc.get('id')}): {e}")
-
-          # Índice agregador
-          if generated:
-              index_path = OUT_DIR / "README.md"
-              lines = ["# Relatórios de Insights por Conta\n"]
-              for g in generated:
-                  lines.append(f"- [{g}]({g})")
-              index_path.write_text("\n".join(lines), encoding="utf-8")
-              print(f"📚 Índice criado: {index_path}")
-
-          print("🏁 Concluído.")
+          print("✅ Relatório IA gerado com sucesso: ads_ai_insights.md")
           EOF
 
       - name: Commit and push AI insights
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add ads_ai_insights/*.md || echo "Sem alterações para adicionar"
-          git commit -m "Add per-account AI insights" || echo "Sem alterações para commit"
+          git add ads_ai_insights.md
+          git commit -m "Update AI insights report"
           git push
